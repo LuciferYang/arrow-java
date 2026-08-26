@@ -18,6 +18,7 @@ package org.apache.arrow.memory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 /** Test cases for {@link AllocationManager}. */
@@ -25,6 +26,10 @@ public class TestAllocationManager {
 
   @Test
   public void testAllocationManagerType() {
+    // The environment variable cannot be cleared inside the JVM.
+    Assumptions.assumeTrue(
+        System.getenv(DefaultAllocationManagerOption.ALLOCATION_MANAGER_TYPE_ENV_NAME) == null,
+        DefaultAllocationManagerOption.ALLOCATION_MANAGER_TYPE_ENV_NAME + " is set");
 
     // test unknown allocation manager type
     System.clearProperty(DefaultAllocationManagerOption.ALLOCATION_MANAGER_TYPE_PROPERTY_NAME);

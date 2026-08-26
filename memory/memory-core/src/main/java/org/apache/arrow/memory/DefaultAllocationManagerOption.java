@@ -53,26 +53,36 @@ public class DefaultAllocationManagerOption {
    *
    * @return the default allocation manager type.
    */
-  @SuppressWarnings("nullness:argument") // enum types valueOf are implicitly non-null
   @VisibleForTesting
   public static AllocationManagerType getDefaultAllocationManagerType() {
-    AllocationManagerType ret = AllocationManagerType.Unknown;
-
-    try {
-      String envValue = System.getenv(ALLOCATION_MANAGER_TYPE_ENV_NAME);
-      ret = AllocationManagerType.valueOf(envValue);
-    } catch (IllegalArgumentException | NullPointerException e) {
-      // ignore the exception, and make the allocation manager type remain unchanged
-    }
+    AllocationManagerType ret =
+        parseAllocationManagerType(
+            ALLOCATION_MANAGER_TYPE_ENV_NAME,
+            System.getenv(ALLOCATION_MANAGER_TYPE_ENV_NAME),
+            AllocationManagerType.Unknown);
 
     // system property takes precedence
-    try {
-      String propValue = System.getProperty(ALLOCATION_MANAGER_TYPE_PROPERTY_NAME);
-      ret = AllocationManagerType.valueOf(propValue);
-    } catch (IllegalArgumentException | NullPointerException e) {
-      // ignore the exception, and make the allocation manager type remain unchanged
-    }
+    ret =
+        parseAllocationManagerType(
+            ALLOCATION_MANAGER_TYPE_PROPERTY_NAME,
+            System.getProperty(ALLOCATION_MANAGER_TYPE_PROPERTY_NAME),
+            ret);
     return ret;
+  }
+
+  private static AllocationManagerType parseAllocationManagerType(
+      String source, @Nullable String value, AllocationManagerType current) {
+    if (value == null) {
+      return current;
+    }
+    for (AllocationManagerType type : AllocationManagerType.values()) {
+      if (type.name().equalsIgnoreCase(value.trim())) {
+        return type;
+      }
+    }
+    LOGGER.warn(
+        "Ignoring invalid value '{}' for {}; valid values are Netty and Unsafe.", value, source);
+    return current;
   }
 
   static AllocationManager.Factory getDefaultAllocationManagerFactory() {
@@ -88,7 +98,7 @@ public class DefaultAllocationManagerOption {
         DEFAULT_ALLOCATION_MANAGER_FACTORY = getUnsafeFactory();
         break;
       case Unknown:
-        LOGGER.info("allocation manager type not specified, using netty as the default type");
+        LOGGER.info("allocation manager type not set or invalid, using netty as the default type");
         DEFAULT_ALLOCATION_MANAGER_FACTORY = getFactory(CheckAllocator.check());
         break;
       default:
