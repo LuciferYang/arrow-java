@@ -506,7 +506,9 @@ public final class ArrowBuf implements AutoCloseable {
       // check reference count
       this.ensureAccessible();
       // check bounds
-      if (length > writableBytes()) {
+      // A negative writerIndex inflates writableBytes() beyond the capacity, so it
+      // must be rejected explicitly: the writerIndex(long) setter does not validate.
+      if (writerIndex < 0 || length > writableBytes()) {
         throw new IndexOutOfBoundsException(
             String.format(
                 "writerIndex(%d) + length(%d) exceeds capacity(%d)",

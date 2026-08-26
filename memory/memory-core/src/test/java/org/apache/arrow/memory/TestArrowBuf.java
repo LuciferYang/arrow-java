@@ -73,6 +73,39 @@ public class TestArrowBuf {
   }
 
   @Test
+  public void testWriteRejectsNegativeWriterIndex() {
+    try (BufferAllocator allocator = new RootAllocator(128);
+        ArrowBuf buf = allocator.buffer(8)) {
+      buf.writerIndex(-8);
+      assertThrows(IndexOutOfBoundsException.class, () -> buf.writeInt(42));
+      assertThrows(IndexOutOfBoundsException.class, () -> buf.writeLong(42L));
+      assertThrows(IndexOutOfBoundsException.class, () -> buf.writeByte((byte) 42));
+    }
+  }
+
+  @Test
+  public void testWriteAtValidIndicesSucceeds() {
+    try (BufferAllocator allocator = new RootAllocator(128);
+        ArrowBuf buf = allocator.buffer(8)) {
+      buf.writeInt(42);
+      buf.writeInt(43);
+      assertEquals(8, buf.writerIndex());
+      assertEquals(42, buf.getInt(0));
+      assertEquals(43, buf.getInt(4));
+    }
+  }
+
+  @Test
+  public void testWritePastCapacityThrows() {
+    try (BufferAllocator allocator = new RootAllocator(128);
+        ArrowBuf buf = allocator.buffer(8)) {
+      buf.writeInt(42);
+      buf.writeInt(43);
+      assertThrows(IndexOutOfBoundsException.class, () -> buf.writeInt(44));
+    }
+  }
+
+  @Test
   public void testSetBytesSliced() {
     int arrLength = 64;
     byte[] expected = new byte[arrLength];
