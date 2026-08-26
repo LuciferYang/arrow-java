@@ -44,14 +44,29 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
     try {
       validateAndCalculatePageShifts(defaultPageSize);
     } catch (Throwable t) {
+      logger.warn(
+          "Invalid pageSize {}. Falling back to the default page size.", defaultPageSize, t);
       defaultPageSize = 8192;
     }
 
     int defaultMaxOrder = Integer.getInteger("org.apache.memory.allocator.maxOrder", 11);
+    if (defaultMaxOrder < 0 || defaultMaxOrder > 14) {
+      logger.warn(
+          "Invalid maxOrder {} (expected: 0-14). Falling back to the default max order.",
+          defaultMaxOrder);
+      defaultMaxOrder = 11;
+    }
     try {
       validateAndCalculateChunkSize(defaultPageSize, defaultMaxOrder);
     } catch (Throwable t) {
-      defaultMaxOrder = 11;
+      // maxOrder is already in range, so the page size is the culprit here; any
+      // maxOrder combined with the default page size stays within the chunk limit.
+      logger.warn(
+          "pageSize {} is too large for maxOrder {}. Falling back to the default page size.",
+          defaultPageSize,
+          defaultMaxOrder,
+          t);
+      defaultPageSize = 8192;
     }
     DEFAULT_CHUNK_SIZE = validateAndCalculateChunkSize(defaultPageSize, defaultMaxOrder);
     if (logger.isDebugEnabled()) {
@@ -75,7 +90,7 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
   }
 
   private static long validateAndCalculateChunkSize(long pageSize, int maxOrder) {
-    if (maxOrder > 14) {
+    if (maxOrder < 0 || maxOrder > 14) {
       throw new IllegalArgumentException("maxOrder: " + maxOrder + " (expected: 0-14)");
     }
 
