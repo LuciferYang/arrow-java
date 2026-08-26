@@ -930,9 +930,10 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       Preconditions.checkState(!closed, "Attempt to allocate after closed");
       Preconditions.checkState(!used, "Attempt to allocate more than once");
 
-      final ArrowBuf arrowBuf = allocate(nBytes);
+      // Consume the reservation before allocating: if allocate() fails, it releases
+      // the reserved bytes itself, so close() must not release them a second time.
       used = true;
-      return arrowBuf;
+      return allocate(nBytes);
     }
 
     @Override
