@@ -30,6 +30,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import org.apache.arrow.memory.util.Float16;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
@@ -109,6 +110,73 @@ public class TestArrowBuf {
       byte[] actual = new byte[expected.length];
       buf.getBytes(0, actual);
       assertArrayEquals(expected, actual);
+    }
+  }
+
+  @Test
+  public void testSetBytesDirectByteBufferSourceOutOfBounds() {
+    ByteBuffer direct = ByteBuffer.allocateDirect(8);
+    try (BufferAllocator allocator = new RootAllocator(128);
+        ArrowBuf buf = allocator.buffer(8)) {
+      assertThrows(IndexOutOfBoundsException.class, () -> buf.setBytes(0, direct, 100, 4));
+      assertThrows(IndexOutOfBoundsException.class, () -> buf.setBytes(0, direct, -1, 4));
+      assertThrows(IndexOutOfBoundsException.class, () -> buf.setBytes(0, direct, 5, 4));
+    }
+  }
+
+  @Test
+  public void testSetBytesNullByteBufferSource() {
+    try (BufferAllocator allocator = new RootAllocator(128);
+        ArrowBuf buf = allocator.buffer(8)) {
+      assertThrows(IllegalArgumentException.class, () -> buf.setBytes(0, (ByteBuffer) null, 0, 4));
+    }
+  }
+
+  @Test
+  public void testSetBytesHeapByteBufferSourceOutOfBounds() {
+    ByteBuffer heap = ByteBuffer.wrap(new byte[8]);
+    try (BufferAllocator allocator = new RootAllocator(128);
+        ArrowBuf buf = allocator.buffer(8)) {
+      assertThrows(IndexOutOfBoundsException.class, () -> buf.setBytes(0, heap, 100, 4));
+      assertThrows(IndexOutOfBoundsException.class, () -> buf.setBytes(0, heap, -1, 4));
+      assertThrows(IndexOutOfBoundsException.class, () -> buf.setBytes(0, heap, 5, 4));
+    }
+  }
+
+  @Test
+  public void testSetBytesHeapByteBufferSourceAtBounds() {
+    ByteBuffer heap = ByteBuffer.wrap(new byte[] {1, 2, 3, 4, 5, 6, 7, 8});
+    try (BufferAllocator allocator = new RootAllocator(128);
+        ArrowBuf buf = allocator.buffer(4)) {
+      buf.setBytes(0, heap, 4, 4);
+
+      byte[] actual = new byte[4];
+      buf.getBytes(0, actual);
+      assertArrayEquals(new byte[] {5, 6, 7, 8}, actual);
+    }
+  }
+
+  @Test
+  public void testSetBytesDirectByteBufferSourceAtBounds() {
+    ByteBuffer direct = ByteBuffer.allocateDirect(8);
+    direct.putLong(0, 0x0102030405060708L);
+    try (BufferAllocator allocator = new RootAllocator(128);
+        ArrowBuf buf = allocator.buffer(4)) {
+      try {
+        buf.setBytes(0, direct, 4, 4);
+      } catch (UnsupportedOperationException e) {
+        // Reading a direct ByteBuffer's address needs --add-opens=java.base/java.nio,
+        // which the opens-tests surefire execution and IDE/direct JUnit runs do not
+        // pass; only skip for that known cause, never for a real regression.
+        if (e.getMessage() == null || !e.getMessage().contains("not available")) {
+          throw e;
+        }
+        Assumptions.abort(e.getMessage());
+      }
+
+      byte[] actual = new byte[4];
+      buf.getBytes(0, actual);
+      assertArrayEquals(new byte[] {5, 6, 7, 8}, actual);
     }
   }
 
